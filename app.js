@@ -42,13 +42,7 @@ const modalDuplicate = document.getElementById('modal-duplicate-alert');
 const duplicateBarcodeText = document.getElementById('duplicate-barcode-text');
 const btnDupRescan = document.getElementById('btn-dup-rescan');
 
-const modalMismatch = document.getElementById('modal-mismatch-alert');
-const mismatchBarcodeText = document.getElementById('mismatch-barcode-text');
-const mismatchOcrText = document.getElementById('mismatch-ocr-text');
-const btnMismatchUseBarcode = document.getElementById('btn-mismatch-use-barcode');
-const btnMismatchUseOcr = document.getElementById('btn-mismatch-use-ocr');
-const btnMismatchRescan = document.getElementById('btn-mismatch-rescan');
-let mismatchState = { barcode: "", ocr: "" };
+
 
 const modalEntry = document.getElementById('modal-entry-form');
 const entryModalTitle = document.getElementById('entry-modal-title');
@@ -221,11 +215,16 @@ function renderList() {
             itemEl.classList.add('highlight-new');
         }
         
+        const warningIcon = item.isMismatch 
+            ? `<span class="mismatch-warning-tag" title="⚠️ 條碼與文字讀取不符！" style="color: var(--danger); font-size: 0.9rem; margin-right: 8px; display: flex; align-items: center;"><i class="fa-solid fa-triangle-exclamation"></i></span>`
+            : '';
+            
         itemEl.innerHTML = `
             <div class="item-details" style="cursor: default;">
                 <div class="item-barcode" style="font-size: 1.05rem;">${escapeHtml(item.barcode)}</div>
             </div>
-            <div class="item-actions">
+            <div class="item-actions" style="display: flex; align-items: center;">
+                ${warningIcon}
                 <button class="item-delete-btn" onclick="deleteItem(${mainIndex})" title="刪除項目">
                     <i class="fa-solid fa-trash-can"></i>
                 </button>
@@ -286,7 +285,7 @@ function startScanCooldown(ms = 3000) {
 // ==========================================================================
 let duplicateItemRef = null; // Store temp reference for duplicate popup
 
-function handleBarcodeScan(barcode) {
+function handleBarcodeScan(barcode, isMismatch = false) {
     if (isProcessingScan) return;
     
     // Check if barcode already exists
@@ -323,7 +322,8 @@ function handleBarcodeScan(barcode) {
         // Insert new item
         inventory.push({
             barcode: barcode,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            isMismatch: isMismatch
         });
         
         saveInventory();
@@ -1035,7 +1035,7 @@ function parseOcrText(text) {
 }
 
 // ==========================================================================
-// Simultaneous Verification & Mismatch Warning Modal Logic
+// Simultaneous Verification & Warning Marker Logic
 // ==========================================================================
 
 async function handleBarcodeAndOcrVerify(barcode) {
@@ -1059,6 +1059,8 @@ async function handleBarcodeAndOcrVerify(barcode) {
         handleBarcodeScan(barcode);
         return;
     }
+
+    let isMismatch = false;
 
     try {
         // 1. Capture the viewfinder frame immediately
@@ -1087,21 +1089,20 @@ async function handleBarcodeAndOcrVerify(barcode) {
             // Clean barcode value for comparison (ignore non-alphanumeric/dash)
             const cleanBarcode = barcode.replace(/[^A-Z0-9-]/gi, "").toUpperCase();
 
+            // If OCR successfully parsed a value, and it differs from the barcode value:
             if (parsedOcr && cleanBarcode !== parsedOcr) {
-                // MISMATCH DETECTED!
+                isMismatch = true;
+                
+                // Trigger warning feedback
                 playWarningBeep();
                 triggerVibration([150, 100, 150]);
 
-                // Flash red
+                // Flash red briefly
                 const laserOverlay = document.getElementById('scanner-laser-overlay');
                 if (laserOverlay) {
                     laserOverlay.classList.add('warning-flash');
                     setTimeout(() => laserOverlay.classList.remove('warning-flash'), 500);
                 }
-
-                // Show mismatch modal
-                showMismatchModal(barcode, parsedOcr);
-                return;
             }
         }
     } catch (e) {
@@ -1114,38 +1115,10 @@ async function handleBarcodeAndOcrVerify(barcode) {
         hint.style.color = 'var(--text-primary)';
     }
 
-    // If they match, or if OCR didn't find any text, we trust the barcode and save it
+    // Prioritize barcode result, log it directly with the mismatch flag
     isProcessingScan = false;
-    handleBarcodeScan(barcode);
+    handleBarcodeScan(barcode, isMismatch);
 }
-
-function showMismatchModal(barcode, ocr) {
-    mismatchState.barcode = barcode;
-    mismatchState.ocr = ocr;
-
-    mismatchBarcodeText.textContent = barcode;
-    mismatchOcrText.textContent = ocr;
-
-    modalMismatch.classList.add('open');
-}
-
-btnMismatchUseBarcode.addEventListener('click', () => {
-    modalMismatch.classList.remove('open');
-    isProcessingScan = false;
-    handleBarcodeScan(mismatchState.barcode);
-});
-
-btnMismatchUseOcr.addEventListener('click', () => {
-    modalMismatch.classList.remove('open');
-    isProcessingScan = false;
-    handleBarcodeScan(mismatchState.ocr);
-});
-
-btnMismatchRescan.addEventListener('click', () => {
-    modalMismatch.classList.remove('open');
-    isProcessingScan = false;
-    startScanCooldown(3000);
-});
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
