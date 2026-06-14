@@ -173,6 +173,40 @@
         </div>
     </div>
 
+    <!-- Modal: Mismatch Alert -->
+    <div id="modal-mismatch-alert" class="modal-backdrop">
+        <div class="modal-content alert-modal animate-slide-down">
+            <div class="modal-header alert-type">
+                <i class="fa-solid fa-circle-exclamation modal-icon warning" style="color: var(--danger);"></i>
+                <h2>條碼與文字不符！</h2>
+            </div>
+            <div class="modal-body">
+                <p class="alert-message">偵測到條碼解碼值與影像文字判讀值不相同，請確認：</p>
+                <div class="mismatch-box">
+                    <div class="mismatch-row">
+                        <span class="mismatch-label"><i class="fa-solid fa-barcode"></i> 條碼解碼：</span>
+                        <strong id="mismatch-barcode-text" class="mismatch-val">ABC-12345</strong>
+                    </div>
+                    <div class="mismatch-row">
+                        <span class="mismatch-label"><i class="fa-solid fa-font"></i> 文字判讀：</span>
+                        <strong id="mismatch-ocr-text" class="mismatch-val" style="color: var(--warning);">ABC-1234B</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="flex-direction: row; gap: 8px;">
+                <button id="btn-mismatch-use-barcode" class="modal-btn primary" style="flex: 1; font-size: 0.78rem; padding: 10px 4px; white-space: nowrap;">
+                    使用條碼值
+                </button>
+                <button id="btn-mismatch-use-ocr" class="modal-btn success" style="flex: 1; font-size: 0.78rem; padding: 10px 4px; white-space: nowrap;">
+                    使用文字值
+                </button>
+                <button id="btn-mismatch-rescan" class="modal-btn outline" style="flex: 1; font-size: 0.78rem; padding: 10px 4px; white-space: nowrap;">
+                    重新掃描
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Tesseract.js OCR Library (via CDN) -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.3/dist/tesseract.min.js"></script>
     <!-- HTML5 QR Code Scanner Library (via CDN) -->

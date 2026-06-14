@@ -42,6 +42,14 @@ const modalDuplicate = document.getElementById('modal-duplicate-alert');
 const duplicateBarcodeText = document.getElementById('duplicate-barcode-text');
 const btnDupRescan = document.getElementById('btn-dup-rescan');
 
+const modalMismatch = document.getElementById('modal-mismatch-alert');
+const mismatchBarcodeText = document.getElementById('mismatch-barcode-text');
+const mismatchOcrText = document.getElementById('mismatch-ocr-text');
+const btnMismatchUseBarcode = document.getElementById('btn-mismatch-use-barcode');
+const btnMismatchUseOcr = document.getElementById('btn-mismatch-use-ocr');
+const btnMismatchRescan = document.getElementById('btn-mismatch-rescan');
+let mismatchState = { barcode: "", ocr: "" };
+
 const modalEntry = document.getElementById('modal-entry-form');
 const entryModalTitle = document.getElementById('entry-modal-title');
 const entryForm = document.getElementById('entry-form');
@@ -384,8 +392,8 @@ function configureAndStartScanner(cameraId) {
         cameraId,
         config,
         (decodedText) => {
-            // Success callback
-            handleBarcodeScan(decodedText);
+            // Success callback - route to verification
+            handleBarcodeAndOcrVerify(decodedText);
         },
         () => {
             // Error callback (silent)
@@ -1025,6 +1033,119 @@ function parseOcrText(text) {
 
     return bestCandidate;
 }
+
+// ==========================================================================
+// Simultaneous Verification & Mismatch Warning Modal Logic
+// ==========================================================================
+
+async function handleBarcodeAndOcrVerify(barcode) {
+    if (isProcessingScan) return;
+    isProcessingScan = true; // Lock scanning immediately
+
+    // Stop motion detection timer so we don't trigger fallback OCR while verifying
+    stillTimeStart = null;
+
+    // Show visual status feedback
+    const hint = document.querySelector('.scanner-hint');
+    if (hint) {
+        hint.textContent = '🔍 正在比對條碼與文字...';
+        hint.style.color = '#3b82f6';
+    }
+
+    const videoEl = document.querySelector('#interactive-scanner video');
+    if (!videoEl || videoEl.readyState < 2 || typeof Tesseract === 'undefined') {
+        // Fallback: if no video or Tesseract, log the barcode directly
+        isProcessingScan = false;
+        handleBarcodeScan(barcode);
+        return;
+    }
+
+    try {
+        // 1. Capture the viewfinder frame immediately
+        const width = videoEl.videoWidth;
+        const height = videoEl.videoHeight;
+        const boxSize = Math.min(width, height) * 0.7;
+        const boxWidth = boxSize;
+        const boxHeight = boxSize * 0.9;
+        const cropX = (width - boxWidth) / 2;
+        const cropY = (height - boxHeight) / 2;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = boxWidth;
+        canvas.height = boxHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(videoEl, cropX, cropY, boxWidth, boxHeight, 0, 0, boxWidth, boxHeight);
+
+        // 2. Run OCR in background
+        const worker = await initOcr();
+        if (worker) {
+            const { data: { text } } = await worker.recognize(canvas);
+            const parsedOcr = parseOcrText(text);
+
+            console.log(`Verify: Barcode=${barcode}, OCR=${parsedOcr}`);
+
+            // Clean barcode value for comparison (ignore non-alphanumeric/dash)
+            const cleanBarcode = barcode.replace(/[^A-Z0-9-]/gi, "").toUpperCase();
+
+            if (parsedOcr && cleanBarcode !== parsedOcr) {
+                // MISMATCH DETECTED!
+                playWarningBeep();
+                triggerVibration([150, 100, 150]);
+
+                // Flash red
+                const laserOverlay = document.getElementById('scanner-laser-overlay');
+                if (laserOverlay) {
+                    laserOverlay.classList.add('warning-flash');
+                    setTimeout(() => laserOverlay.classList.remove('warning-flash'), 500);
+                }
+
+                // Show mismatch modal
+                showMismatchModal(barcode, parsedOcr);
+                return;
+            }
+        }
+    } catch (e) {
+        console.error("Error during barcode verification OCR:", e);
+    }
+
+    // Restore hint
+    if (hint) {
+        hint.textContent = '請將條碼放入框內進行掃描';
+        hint.style.color = 'var(--text-primary)';
+    }
+
+    // If they match, or if OCR didn't find any text, we trust the barcode and save it
+    isProcessingScan = false;
+    handleBarcodeScan(barcode);
+}
+
+function showMismatchModal(barcode, ocr) {
+    mismatchState.barcode = barcode;
+    mismatchState.ocr = ocr;
+
+    mismatchBarcodeText.textContent = barcode;
+    mismatchOcrText.textContent = ocr;
+
+    modalMismatch.classList.add('open');
+}
+
+btnMismatchUseBarcode.addEventListener('click', () => {
+    modalMismatch.classList.remove('open');
+    isProcessingScan = false;
+    handleBarcodeScan(mismatchState.barcode);
+});
+
+btnMismatchUseOcr.addEventListener('click', () => {
+    modalMismatch.classList.remove('open');
+    isProcessingScan = false;
+    handleBarcodeScan(mismatchState.ocr);
+});
+
+btnMismatchRescan.addEventListener('click', () => {
+    modalMismatch.classList.remove('open');
+    isProcessingScan = false;
+    startScanCooldown(3000);
+});
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {

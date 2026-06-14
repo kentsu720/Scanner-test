@@ -1,4 +1,4 @@
-const CACHE_NAME = 'device-scanner-test-v1';
+const CACHE_NAME = 'device-scanner-test-v2';
 const ASSETS = [
   './',
   './index.html',
