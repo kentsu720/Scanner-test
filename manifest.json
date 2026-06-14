@@ -1,0 +1,22 @@
+{
+  "name": "KS Scanner Test",
+  "short_name": "KS Scanner Test",
+  "description": "KS Scanner Test 測試版行動設備序號掃描系統",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

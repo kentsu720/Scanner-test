@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>行動庫存條碼登錄系統</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PWA Manifest & Icons -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon-512.png">
+    <!-- Custom Style Sheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- PWA Install Banner -->
+    <div id="pwa-install-banner" class="install-banner" style="display: none;">
+        <div class="banner-content">
+            <i class="fa-solid fa-cloud-arrow-down install-icon"></i>
+            <span id="install-message">安裝為手機 App，享極速離線盤點！</span>
+            <button id="btn-install-pwa" class="banner-btn">安裝</button>
+        </div>
+        <button id="btn-close-banner" class="banner-close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fa-solid fa-boxes-stacked logo-icon"></i>
+                    <div>
+                        <h1>庫存登錄系統</h1>
+                        <span class="sub-title">Inventory Scanner</span>
+                    </div>
+                </div>
+                <div class="connection-status-container">
+                    <div class="connection-status" id="scanner-status">
+                        <span class="status-dot offline"></span>
+                        <span class="status-text">相機未啟動</span>
+                    </div>
+                    <div class="active-camera-tag" id="active-camera-display" style="display: none;">
+                        <i class="fa-solid fa-circle-dot"></i> <span id="active-camera-name">偵測中...</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+
+        <!-- Scanner Section -->
+        <main class="scanner-section">
+            <div class="scanner-wrapper">
+                <!-- Camera view area -->
+                <div id="interactive-scanner" class="scanner-viewport"></div>
+                
+                <!-- Laser scan animation overlay -->
+                <div class="scanner-overlay" id="scanner-laser-overlay">
+                    <div class="viewfinder">
+                        <div class="corner top-left"></div>
+                        <div class="corner top-right"></div>
+                        <div class="corner bottom-left"></div>
+                        <div class="corner bottom-right"></div>
+                        <div class="laser-line"></div>
+                    </div>
+                    <div class="scanner-hint">請將條碼放入框內進行掃描</div>
+                </div>
+            </div>
+
+            <!-- Scanner Controls -->
+            <div class="scanner-controls">
+                <button id="btn-toggle-camera" class="ctrl-btn" title="切換鏡頭">
+                    <i class="fa-solid fa-camera-rotate"></i>
+                    <span>切換鏡頭</span>
+                </button>
+                <button id="btn-toggle-torch" class="ctrl-btn" title="手電筒">
+                    <i class="fa-solid fa-lightbulb"></i>
+                    <span>手電筒</span>
+                </button>
+                <button id="btn-manual-input" class="ctrl-btn primary" title="手動輸入">
+                    <i class="fa-solid fa-keyboard"></i>
+                    <span>手動輸入</span>
+                </button>
+            </div>
+        </main>
+
+        <!-- Action Control Panel -->
+        <section class="action-panel">
+            <div class="action-group">
+                <button id="btn-export-txt" class="action-btn text-btn">
+                    <i class="fa-solid fa-file-lines"></i> 匯出 TXT
+                </button>
+                <button id="btn-export-csv" class="action-btn csv-btn">
+                    <i class="fa-solid fa-file-csv"></i> 匯出 CSV
+                </button>
+                <button id="btn-clear-all" class="action-btn danger-btn">
+                    <i class="fa-solid fa-trash-can"></i> 清空資料
+                </button>
+            </div>
+        </section>
+
+        <!-- Inventory List Section -->
+        <section class="inventory-section">
+            <div class="section-header">
+                <h2><i class="fa-solid fa-list-check"></i> 已登錄庫存清單 <span class="header-qty-label">已登錄數量: <span id="stat-total-devices">0</span></span></h2>
+                <button id="btn-sort-list" class="text-link-btn" title="切換排序">
+                    <i class="fa-solid fa-sort"></i> 時間最晚優先
+                </button>
+            </div>
+            <div id="inventory-list" class="inventory-list">
+                <!-- Dynamic Content Here -->
+                <div class="empty-state">
+                    <i class="fa-solid fa-qrcode empty-icon"></i>
+                    <p>尚未登錄任何商品，請開始掃描或手動輸入！</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Modal: Duplicate Barcode Alert -->
+    <div id="modal-duplicate-alert" class="modal-backdrop">
+        <div class="modal-content alert-modal animate-slide-down">
+            <div class="modal-header alert-type">
+                <i class="fa-solid fa-triangle-exclamation modal-icon warning"></i>
+                <h2>偵測到重複序號！</h2>
+            </div>
+            <div class="modal-body">
+                <p class="alert-message">
+                    序號 <strong id="duplicate-barcode-text" class="highlight-text">4710123456789</strong> 已經存在於登錄清單中。
+                </p>
+                <div class="duplicate-item-info">
+                    <p class="duplicate-warning-tip"><i class="fa-solid fa-triangle-exclamation"></i> 每個設備序號限登錄一次，此序號已被登錄。</p>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: center;">
+                <button id="btn-dup-rescan" class="modal-btn outline" style="width: 100%;">
+                    <i class="fa-solid fa-rotate-left"></i> 關閉並重新掃描
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Manual Entry / Edit Form -->
+    <div id="modal-entry-form" class="modal-backdrop">
+        <div class="modal-content animate-scale-up">
+            <div class="modal-header">
+                <h2 id="entry-modal-title">手動新增設備序號</h2>
+                <button class="btn-close-modal" id="btn-close-entry-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="entry-form">
+                <div class="modal-body">
+                    <input type="hidden" id="entry-edit-index" value="">
+                    
+                    <div class="form-group">
+                        <label for="input-barcode">設備序號 (必填)</label>
+                        <div class="input-with-icon">
+                            <i class="fa-solid fa-barcode input-icon"></i>
+                            <input type="text" id="input-barcode" required placeholder="請輸入或掃描序號">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="btn-cancel-entry" class="modal-btn outline">取消</button>
+                    <button type="submit" class="modal-btn primary">確定儲存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tesseract.js OCR Library (via CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.3/dist/tesseract.min.js"></script>
+    <!-- HTML5 QR Code Scanner Library (via CDN) -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <!-- App Logic Script -->
+    <script src="app.js"></script>
+</body>
+</html>
